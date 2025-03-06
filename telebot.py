@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # Load token dari file .env
 dotenv.load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-DATA_FILE = "chat_data.json"
+
 
 class GraphBot:
     def __init__(self, token):
