@@ -59,7 +59,7 @@ class Chart:
 
                 # Buat grafik untuk setiap bulan yang tersedia
                 for month, (dates_dt, counts) in monthly_data.items():
-                    plt.figure(figsize=(10, 5))
+                    plt.figure(figsize=(15, 10))
 
                     # Plot data
                     plt.plot(dates_dt, counts, linestyle='-', label=f"{problem_name}")
