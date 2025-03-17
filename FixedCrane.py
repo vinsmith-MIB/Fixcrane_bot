@@ -12,6 +12,7 @@ class FixedCrane:
     @staticmethod
     def add_to_dict(obj):
         """ Menambahkan objek FixedCrane ke dictionary """
+        
         for problem in obj.problem:
             dictionary[obj.fixedCraneIndex][problem.name][obj.date] += problem.value  # Pastikan += agar tidak overwrite
         

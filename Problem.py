@@ -16,6 +16,7 @@ class Problem:
             self.initialized = True
 
     def add_value(self):
+        print(f"addvalue = {self.name}   {self.value}")
         self.value += 1
     
     @classmethod

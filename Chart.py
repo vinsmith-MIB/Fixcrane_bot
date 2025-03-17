@@ -45,7 +45,7 @@ class Chart:
 
                 # Pisahkan data berdasarkan bulan
                 for date_obj, count in zip(dates_dt, counts):
-                    month = int(date_obj.strftime("%m"))  # Ambil bulan dalam bentuk angka (1-12)
+                    month = int(date_obj.strftime("%Y%m"))  # Ambil bulan dalam bentuk angka (1-12)
 
                     if month not in monthly_data:
                         monthly_data[month] = ([], [])
@@ -73,9 +73,13 @@ class Chart:
                     plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=1))
                     plt.legend(title="Problem Type", prop=ChineseFont1)
                     plt.grid(True, linestyle="--", alpha=0.7)
+                    
+                    temp_file = datetime.datetime.strptime(str(month), "%Y%m")  # Konversi ke datetime
+                    formatted_month = temp_file.strftime("%Y-%m")  # Format menjadi YYYY-MM
 
-                    # Simpan grafik di dalam folder problem
-                    plt.savefig(f"{problem_folder}/{month}.svg", dpi=600, bbox_inches="tight")
+                    plt.savefig(f"{problem_folder}/{formatted_month}.svg", dpi=600, bbox_inches="tight")
+
+
                     plt.close()
 
                     print(f"📊 Grafik bulan {month} untuk problem '{problem_name}' telah disimpan di {problem_folder}/{month}.svg")

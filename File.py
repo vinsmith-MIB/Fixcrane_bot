@@ -42,11 +42,7 @@ class File:
             for file_name in sorted(files): 
                 csv = CSV(f'{root}/{file_name}')
                 csv.read()
-        
         Chart.plot_problems(Chart(dictionary))
         
-File.extract_rar()   
-File.folder_iteration()
-
-
-
+# File.folder_iteration()
+# Chart.plot_problems(Chart(dictionary))
