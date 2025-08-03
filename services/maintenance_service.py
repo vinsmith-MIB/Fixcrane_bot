@@ -258,26 +258,33 @@ class MaintenanceService:
     
     """ FAULT DATABASE """
     
-    def get_fault_reference_by_name(self, fault_name: str) -> Optional[FaultReference]:
+    def get_or_create_fault_reference_by_name(self, fault_name: str) -> FaultReference:
         """
-        Mengambil satu objek FaultReference dari database berdasarkan fault_name.
-        Jika tidak ditemukan, akan mengembalikan None.
+        Mengambil atau membuat FaultReference berdasarkan nama fault.
+        Jika tidak ada, maka akan dibuat entri baru.
         """
         fault_query = re.sub(r"\(.*?\)", "", fault_name).strip()
         
-        query = """
-            SELECT fault_id, code_fault, fault_name
-            FROM fault_references
-            WHERE fault_name = %s
-            LIMIT 1
-        """
-        results = self.db_manager.fetchall(query, (fault_query.strip(),))
-        logging.info(f"Query results: {results} string preferences: {fault_query.strip()}")
-        if results:
-            fault_id, code_fault, fault_query = results[0]
-            return FaultReference(
-                fault_id=fault_id,
-                code_fault=code_fault,
-                fault_name=fault_query,
-            )
-        return None
+        # Coba cari dulu
+        find_query = "SELECT fault_id, code_fault, fault_name FROM fault_references WHERE fault_name = %s LIMIT 1"
+        result = self.db_manager.fetchone(find_query, (fault_query,))
+        
+        if result:
+            fault_id, code_fault, name = result
+            return FaultReference(fault_id=fault_id, code_fault=code_fault, fault_name=name)
+        else:
+            # Jika tidak ada, buat baru dan kembalikan ID-nya
+            insert_query = """
+            INSERT INTO fault_references (fault_name)
+            VALUES (%s)
+            ON CONFLICT (fault_name) DO NOTHING
+            RETURNING fault_id, code_fault, fault_name;
+            """
+            # Coba lagi untuk menangani race condition jika ada proses lain yang menyisipkan
+            new_result = self.db_manager.fetchone(insert_query, (fault_query,))
+            if new_result:
+                fault_id, code_fault, name = new_result
+                return FaultReference(fault_id=fault_id, code_fault=code_fault, fault_name=name)
+            else:
+                # Jika ON CONFLICT terjadi, ambil lagi data yang sudah ada
+                return self.get_or_create_fault_reference_by_name(fault_name)

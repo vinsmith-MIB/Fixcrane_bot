@@ -110,7 +110,7 @@ class RarParserService:
                                 print(f"Baris tidak valid (kurang kolom): {row}")
                                 continue
 
-                        fault_ref = self.maintenance_service.get_fault_reference_by_name(fault_name)
+                        fault_ref = self.maintenance_service.get_or_create_fault_reference_by_name(fault_name)
                         print(f"Menambahkan record: {waktu}, {act}, {fault_name}, {crane_id}, {fault_ref.fault_id}")
                         record = MaintenanceRecord(tanggal, waktu, act, fault_name, crane_id, fault_ref)
                         self.maintenance_service.add_record(record)

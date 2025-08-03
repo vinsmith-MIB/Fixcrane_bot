@@ -20,8 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application's code into the container at /app
 COPY . .
 
-# Copy the wait script and make it executable
+# Copy the wait script, convert line endings, and make it executable
 COPY wait-for-db.sh /app/wait-for-db.sh
+RUN apt-get update && apt-get install -y dos2unix && rm -rf /var/lib/apt/lists/*
+RUN dos2unix /app/wait-for-db.sh
 RUN chmod +x /app/wait-for-db.sh
 
 # Run the wait script before starting the main application
