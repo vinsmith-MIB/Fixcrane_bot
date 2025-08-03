@@ -4,25 +4,28 @@ FROM python:3.11.3-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
+# Copy the requirements file to leverage Docker cache
 COPY requirements.txt .
 
-# Install system dependencies required for psycopg2 and psql
-# Add contrib and non-free repositories, then install dependencies
+# Add contrib/non-free, update, and install all system dependencies in one layer
 RUN sed -i 's/ main/ main contrib non-free/g' /etc/apt/sources.list && \
     apt-get update && \
-    apt-get install -y build-essential libpq-dev gcc postgresql-client unrar && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        gcc \
+        postgresql-client \
+        unrar \
+        dos2unix && \
     rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application's code into the container at /app
+# Copy the rest of the application's code into the container
 COPY . .
 
-# Copy the wait script, convert line endings, and make it executable
-COPY wait-for-db.sh /app/wait-for-db.sh
-RUN apt-get update && apt-get install -y dos2unix && rm -rf /var/lib/apt/lists/*
+# Convert the script's line endings to Unix format and make it executable
 RUN dos2unix /app/wait-for-db.sh
 RUN chmod +x /app/wait-for-db.sh
 
