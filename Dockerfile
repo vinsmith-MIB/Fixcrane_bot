@@ -8,7 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install system dependencies required for psycopg2 and psql
-RUN apt-get update && \
+# Add contrib and non-free repositories, then install dependencies
+RUN sed -i 's/ main/ main contrib non-free/g' /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y build-essential libpq-dev gcc postgresql-client unrar && \
     rm -rf /var/lib/apt/lists/*
 
