@@ -16,7 +16,6 @@ services:
       - db
     volumes:
       - ./:/app
-    command: python main.py
 
   db:
     image: postgres:15

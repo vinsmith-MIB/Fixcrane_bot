@@ -9,6 +9,6 @@ DB_PATH = {
     "dbname": os.getenv("POSTGRES_DB", "fixed_crane_db"),
     "user": os.getenv("POSTGRES_USER", "postgres"),
     "password": os.getenv("POSTGRES_PASSWORD", "acfy0ver"),
-    "host": os.getenv("POSTGRES_HOST", "localhost"),
+    "host": os.getenv("POSTGRES_HOST", "db"),
     "port": int(os.getenv("POSTGRES_PORT", 5432))
 }

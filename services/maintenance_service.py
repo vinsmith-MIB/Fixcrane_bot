@@ -16,7 +16,7 @@ class MaintenanceService:
         self.create_table()
         
     def create_table(self):
-        query = """
+        query_maintenance = """
         CREATE TABLE IF NOT EXISTS maintenance_records (
             id SERIAL PRIMARY KEY,
             tanggal DATE,
@@ -27,7 +27,17 @@ class MaintenanceService:
             fault_id INTEGER
         );
         """
-        self.db_manager.execute(query)
+        self.db_manager.execute(query_maintenance)
+
+        query_faults = """
+        CREATE TABLE IF NOT EXISTS fault_references (
+            fault_id SERIAL PRIMARY KEY,
+            code_fault TEXT,
+            fault_name TEXT,
+            UNIQUE(code_fault, fault_name)
+        );
+        """
+        self.db_manager.execute(query_faults)
         
     def add_record(self, record: MaintenanceRecord):
         query = """
