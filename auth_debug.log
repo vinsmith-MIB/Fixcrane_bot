@@ -1,0 +1,8 @@
+2025-07-05 00:52:15,787 - matplotlib.pyplot - DEBUG - Loaded backend Agg version v2.2.
+2025-07-05 00:52:17,907 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-07-05 00:52:17,909 - httpx - DEBUG - load_verify_locations cafile='C:\\Python311\\Lib\\site-packages\\certifi\\cacert.pem'
+2025-07-05 00:52:17,917 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-07-05 00:52:17,917 - httpx - DEBUG - load_verify_locations cafile='C:\\Python311\\Lib\\site-packages\\certifi\\cacert.pem'
+2025-07-05 00:52:17,927 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-07-05 00:52:17,942 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `getMe` with parameters `{}`
+2025-07-05 00:52:17,948 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
