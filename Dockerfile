@@ -16,7 +16,8 @@ RUN sed -i 's/ main/ main contrib non-free/g' /etc/apt/sources.list && \
         gcc \
         postgresql-client \
         unrar \
-        dos2unix && \
+        dos2unix \
+        fontconfig && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -24,6 +25,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application's code into the container
 COPY . .
+
+# Copy simsun.ttc font to system fonts and refresh font cache
+RUN mkdir -p /usr/share/fonts/truetype/simsun && \
+    cp /app/assets/simsun.ttc /usr/share/fonts/truetype/simsun/simsun.ttc && \
+    fc-cache -f -v
 
 # Convert the script's line endings to Unix format and make it executable
 RUN dos2unix /app/wait-for-db.sh

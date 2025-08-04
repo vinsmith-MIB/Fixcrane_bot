@@ -16,11 +16,28 @@ class GraphService:
         self.maintenance_service = maintenance_service
         os.makedirs("output", exist_ok=True)
 
-        # Gunakan font Mandarin agar karakter Cina tidak menjadi kotak
-        font_path = Path("C:/Windows/Fonts/simsun.ttc")  # Ubah jika path berbeda
-        self.chinese_font = FontProperties(fname=str(font_path))
+        # Setup font untuk karakter Cina dengan fallback
+        self.chinese_font = self._setup_chinese_font()
         plt.switch_backend('Agg')
     
+    def _setup_chinese_font(self):
+        """Setup font Cina dengan fallback untuk berbagai environment"""
+        # Daftar path font yang mungkin ada (lokal dan sistem)
+        font_paths = [
+            Path("assets/simsun.ttc"),  # Font lokal di proyek
+            Path("/usr/share/fonts/truetype/arphic/ukai.ttc"),  # Contoh di Linux
+            Path("/usr/share/fonts/simsun.ttc"),                # Linux manual copy
+            Path("C:/Windows/Fonts/simsun.ttc"),                # Windows
+        ]
+
+        for font_path in font_paths:
+            if font_path.exists():
+                logging.info(f"✔ Menggunakan font Cina dari: {font_path}")
+                return FontProperties(fname=str(font_path))
+
+        # Fallback ke default sistem jika tidak ditemukan
+        logging.warning("⚠ Tidak menemukan font Cina, fallback ke font default.")
+        return FontProperties()
 
     def add_watermark(
         self, 
