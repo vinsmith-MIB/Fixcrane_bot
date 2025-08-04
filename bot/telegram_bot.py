@@ -28,8 +28,18 @@ from services.graph_service import GraphService
 from database.db_manager import DBManager
 from database.models import MaintenanceRecord, FaultReference
 from bot.admin_auth import admin_only, is_admin
+import logging
 
-
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("bot_debug.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # ==============================
 #  INITIALIZATION
@@ -276,13 +286,16 @@ class TelegramBot:
     #  GRAPH HANDLING
     # ==============================
     async def show_graph(self, update_or_query, context, records, start_date, end_date):
+        logger.info(f"Starting graph generation for {len(records)} records")
         grouped_records = defaultdict(list)
         for record in records:
             key = f"{record.crane_id}|{record.fault_name}"
             grouped_records[key].append(record)
 
+        logger.info(f"Grouped records into {len(grouped_records)} groups")
+
         for key, group in grouped_records.items():
-            print(group.crane_id)
+            logger.info(f"Processing graph for group: {key} with {len(group)} records")
             try:
                 if isinstance(update_or_query, Update):
                     chat_id = update_or_query.effective_chat.id
@@ -290,7 +303,9 @@ class TelegramBot:
                     chat_id = update_or_query.message.chat_id
 
                 loading_message = await context.bot.send_message(chat_id=chat_id, text="📊 Sedang memproses grafik... Mohon tunggu.")
+                logger.info(f"Sent loading message for chat_id: {chat_id}")
 
+                logger.info(f"Calling graph_service.generate_graph for key: {key}")
                 file_path = await asyncio.to_thread(
                     graph_service.generate_graph, 
                     group, 
@@ -298,24 +313,30 @@ class TelegramBot:
                     end_date,
                     key
                 )
+                logger.info(f"Graph generation completed. File path: {file_path}")
 
                 if file_path and os.path.exists(file_path):
+                    logger.info(f"Graph file exists at: {file_path}")
                     with open(file_path, "rb") as photo:
                         sent = False
                         while not sent:
                             try:
                                 await context.bot.send_photo(chat_id=chat_id, photo=photo)
                                 sent = True
+                                logger.info(f"Successfully sent graph for key: {key}")
                             except RetryAfter as e:
                                 wait = getattr(e, "retry_after", 5)
-                                print(f"Flood control, retry after {wait}s")
+                                logger.warning(f"Flood control, retry after {wait}s")
                                 await asyncio.sleep(wait)
+                    
                     await context.bot.delete_message(chat_id=chat_id, message_id=loading_message.message_id)
                     try:
                         os.remove(file_path)
+                        logger.info(f"Cleaned up graph file: {file_path}")
                     except Exception as e:
-                        print(f"Gagal menghapus file grafik: {e}")
+                        logger.error(f"Failed to remove graph file: {e}")
                 else:
+                    logger.warning(f"Graph file not found or empty: {file_path}")
                     await context.bot.edit_message_text(
                         chat_id=chat_id,
                         message_id=loading_message.message_id,
@@ -323,11 +344,14 @@ class TelegramBot:
                     )
 
                 # Tambahkan delay antar pengiriman gambar jika perlu
-                await asyncio.sleep(1)  # misal delay 1 detik
+                await asyncio.sleep(1)
 
             except Exception as e:
-                print(f"Terjadi kesalahan saat membuat grafik: {e}")
-                await context.bot.send_message(chat_id=chat_id, text=f"❌ Terjadi kesalahan saat membuat grafik: {e}")
+                logger.error(f"Error saat membuat grafik untuk key {key}:", exc_info=True)
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=f"❌ Terjadi kesalahan saat membuat grafik: {e}")
+                except Exception as send_error:
+                    logger.error(f"Failed to send error message: {send_error}")
 
     # ==============================
     #  DELETE OPERATIONS
@@ -480,7 +504,7 @@ class TelegramBot:
             await callback_query.edit_message_reply_markup(reply_markup=None)
             await self.handle_buttons(update, context, query_data)
         except Exception as e:
-            print(f"Callback query error: {e}")
+            logger.error("Error pada callback query:", exc_info=True)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text="⚠️ Terjadi kesalahan saat memproses permintaan"
@@ -771,7 +795,7 @@ class TelegramBot:
             else:
                 await update.message.reply_text("Mohon kirimkan file dalam format ZIP, RAR, atau CSV.")
         except Exception as e:
-            print(f"Terjadi kesalahan saat memproses file: {e}")
+            logger.error("Error saat memproses file:", exc_info=True)
             await update.message.reply_text(f"Terjadi kesalahan saat memproses file: {e}")
         finally:
             # Bersihkan file sementara

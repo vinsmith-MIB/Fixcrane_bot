@@ -275,13 +275,13 @@ class MaintenanceService:
         else:
             # Jika tidak ada, buat baru dan kembalikan ID-nya
             insert_query = """
-            INSERT INTO fault_references (fault_name)
-            VALUES (%s)
-            ON CONFLICT (fault_name) DO NOTHING
+            INSERT INTO fault_references (code_fault, fault_name)
+            VALUES (%s, %s)
+            ON CONFLICT (code_fault, fault_name) DO NOTHING
             RETURNING fault_id, code_fault, fault_name;
             """
-            # Coba lagi untuk menangani race condition jika ada proses lain yang menyisipkan
-            new_result = self.db_manager.fetchone(insert_query, (fault_query,))
+            # Gunakan code_fault kosong karena tidak ada data code_fault di sini
+            new_result = self.db_manager.fetchone(insert_query, ('', fault_query))
             if new_result:
                 fault_id, code_fault, name = new_result
                 return FaultReference(fault_id=fault_id, code_fault=code_fault, fault_name=name)
