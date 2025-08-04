@@ -92,8 +92,11 @@ class MaintenanceService:
             fault_name=row.get('fault_ref_name') or row['fault_name']
         )
         
+        # Gabungkan tanggal dan waktu menjadi satu objek datetime
+        combined_datetime = datetime.combine(row['tanggal'], row['waktu']) if row['tanggal'] and row['waktu'] else row['tanggal']
+
         return MaintenanceRecord(
-            tanggal=row['tanggal'],
+            tanggal=combined_datetime, # Sekarang berisi datetime lengkap
             waktu=row['waktu'],
             act=row['act'],
             fault_name=row['fault_name'],

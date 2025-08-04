@@ -100,7 +100,7 @@ class GraphService:
         last_fault_time = {}  # Dictionary untuk menyimpan waktu fault terakhir: {tanggal: waktu_fault}
 
         for record in records:
-            # Asumsikan record.tanggal adalah objek datetime yang lengkap
+            # record.tanggal sekarang adalah objek datetime yang lengkap
             fault_date = record.tanggal.date()
             fault_time = record.tanggal
 
