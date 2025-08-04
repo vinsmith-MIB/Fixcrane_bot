@@ -95,12 +95,24 @@ class GraphService:
             fault_per_date[current_date] = 0
             current_date += timedelta(days=1)
 
-        # Hitung jumlah fault per tanggal dan nama fault terpopuler
+        # Hitung jumlah fault per tanggal dengan filter rentang waktu 1 menit
+        records.sort(key=lambda r: r.tanggal)  # Urutkan berdasarkan timestamp
+        last_fault_time = {}  # Dictionary untuk menyimpan waktu fault terakhir: {tanggal: waktu_fault}
+
         for record in records:
-            tanggal = record.tanggal
-            fault_per_date[tanggal] += 1
+            # Asumsikan record.tanggal adalah objek datetime yang lengkap
+            fault_date = record.tanggal.date()
+            fault_time = record.tanggal
+
+            # Counter untuk fault terpopuler tetap menghitung semua kejadian mentah
             if hasattr(record, "fault_name") and record.fault_name:
                 fault_name_counter[record.fault_name] += 1
+
+            # Terapkan filter 1 menit untuk jumlah fault harian yang ditampilkan di grafik
+            if fault_date not in last_fault_time or fault_time >= last_fault_time[fault_date] + timedelta(minutes=1):
+                if fault_date in fault_per_date:
+                    fault_per_date[fault_date] += 1
+                last_fault_time[fault_date] = fault_time # Simpan waktu fault yang dihitung
             
 
         logging.debug("📊 Data Fault per Tanggal:")
