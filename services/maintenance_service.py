@@ -141,23 +141,7 @@ class MaintenanceService:
         ORDER BY mr.tanggal, mr.waktu ASC;
         """
         rows = self.db_manager.fetchall_dict(query, (start_date_obj, end_date_obj, crane_id, fault_id))
-
-        filtered_data = []
-        last_seen = {}
-
-        for row in rows:
-            timestamp_str = f"{row['tanggal']} {row['waktu']}"
-            current_time = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-
-            last_time = last_seen.get(row['fault_name'])
-            if last_time and (current_time - last_time) <= timedelta(minutes=1):
-                continue
-
-            record = self._row_to_maintenance_record(row)
-            filtered_data.append(record)
-            last_seen[row['fault_name']] = current_time
-
-        return filtered_data
+        return [self._row_to_maintenance_record(row) for row in rows]
 
     def get_all_year(self, crane_id: int) -> List[dict]:
         query = """
