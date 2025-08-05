@@ -169,19 +169,34 @@ class GraphService:
                 fontproperties=self.chinese_font
             )
 
+            # Atur batas sumbu Y dan offset teks secara dinamis dan cerdas
+            max_val = max(values) if any(v > 0 for v in values) else 1
+            
+            plt.ylim(bottom=0) # Pastikan sumbu Y mulai dari 0
+
+            if max_val < 5:
+                # Untuk nilai kecil, gunakan penambahan absolut agar tidak terlalu sempit
+                plt.ylim(top=max_val + 2)
+                text_offset = 0.1
+            else:
+                # Untuk nilai besar, gunakan persentase
+                plt.ylim(top=max_val * 1.15)
+                text_offset = max_val * 0.015
+
             plt.grid(axis='y', linestyle='--', alpha=0.7)
 
             for bar in bars:
                 height = bar.get_height()
-                plt.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height + 0.5,
-                    str(height),
-                    ha='center',
-                    va='bottom',
-                    fontsize=8,
-                    fontproperties=self.chinese_font
-                )
+                if height > 0:  # Hanya tampilkan label jika ada fault
+                    plt.text(
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height + text_offset,
+                        str(height),
+                        ha='center',
+                        va='bottom',
+                        fontsize=8,
+                        fontproperties=self.chinese_font
+                    )
 
             file_path = f"output/fault_graph_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
             plt.tight_layout(rect=[0, 0.03, 1, 1])
