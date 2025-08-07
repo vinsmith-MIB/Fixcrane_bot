@@ -141,7 +141,7 @@ class GraphService:
         values = [count for _, count in top_dates]
 
         total_faults = sum(fault_per_date.values())
-        average_per_day = total_faults / len(fault_per_date)
+        average_per_day = total_faults / len(fault_per_date) if len(fault_per_date) > 0 else 0
         most_common_fault, most_common_count = fault_name_counter.most_common(1)[0] if fault_name_counter else ("-", 0)
 
         logging.debug(f"Total Fault: {total_faults}")
