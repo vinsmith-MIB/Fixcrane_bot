@@ -143,14 +143,22 @@ class MaintenanceService:
         rows = self.db_manager.fetchall_dict(query, (start_date_obj, end_date_obj, crane_id, fault_id))
         return [self._row_to_maintenance_record(row) for row in rows]
 
-    def get_all_year(self, crane_id: int) -> List[dict]:
-        query = """
-        SELECT DISTINCT EXTRACT(YEAR FROM tanggal)::INT AS tahun
-        FROM maintenance_records
-        WHERE crane_id = %s
-        ORDER BY tahun;
-        """
-        return self.db_manager.fetchall_dict(query, (crane_id,))
+    def get_all_year(self, crane_id) -> List[dict]:
+        if str(crane_id).lower() == 'all':
+            query = """
+            SELECT DISTINCT EXTRACT(YEAR FROM tanggal)::INT AS tahun
+            FROM maintenance_records
+            ORDER BY tahun;
+            """
+            return self.db_manager.fetchall_dict(query)
+        else:
+            query = """
+            SELECT DISTINCT EXTRACT(YEAR FROM tanggal)::INT AS tahun
+            FROM maintenance_records
+            WHERE crane_id = %s
+            ORDER BY tahun;
+            """
+            return self.db_manager.fetchall_dict(query, (crane_id,))
     
     def get_all_crane_id(self) -> List[dict]:
         query = "SELECT DISTINCT crane_id FROM maintenance_records ORDER BY crane_id;"
@@ -181,16 +189,29 @@ class MaintenanceService:
             self.db_manager.execute(query, (kode_fault, fault_name))
         
     def get_all_faults(self, crane_id, start_date, end_date) -> List[FaultReference]:
-
         start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-        query = """
-        SELECT DISTINCT fault_id, fault_name 
-        FROM maintenance_records
-        WHERE tanggal BETWEEN %s AND %s
-        AND crane_id = %s
-        """
-        rows = self.db_manager.fetchall_dict(query, [start_date_obj, end_date_obj, crane_id])
+        
+        params = [start_date_obj, end_date_obj]
+        
+        if str(crane_id).lower() == 'all':
+            query = """
+            SELECT DISTINCT mr.fault_id, fr.fault_name 
+            FROM maintenance_records mr
+            JOIN fault_references fr ON mr.fault_id = fr.fault_id
+            WHERE mr.tanggal BETWEEN %s AND %s
+            """
+        else:
+            query = """
+            SELECT DISTINCT mr.fault_id, fr.fault_name 
+            FROM maintenance_records mr
+            JOIN fault_references fr ON mr.fault_id = fr.fault_id
+            WHERE mr.tanggal BETWEEN %s AND %s
+            AND mr.crane_id = %s
+            """
+            params.append(crane_id)
+
+        rows = self.db_manager.fetchall_dict(query, params)
         return [
             FaultReference(
                 fault_id=row['fault_id'],
