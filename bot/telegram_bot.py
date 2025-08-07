@@ -555,9 +555,17 @@ class TelegramBot:
                 page = int(parts[4].split("=")[1])
                 return await self.fault_button_handler(update, context, "|".join(parts[:4]), page)
 
-            records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
-            start_date, end_date, crane_id, fault
-            )
+            # Pilih fungsi servis yang sesuai berdasarkan crane_id
+            if str(crane_id).lower() == 'all':
+                # Jika 'all', panggil fungsi yang mengambil data untuk fault spesifik di semua crane
+                records = self.maintenance_service.get_all_records_by_date_and_fault(
+                    start_date, end_date, fault
+                )
+            else:
+                # Jika crane_id spesifik, gunakan fungsi yang sudah ada
+                records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
+                    start_date, end_date, crane_id, fault
+                )
             # Periksa jika records kosong
             if not records:
                 return await update.callback_query.edit_message_text("❌ Tidak ada data ditemukan untuk fault tersebut.")
