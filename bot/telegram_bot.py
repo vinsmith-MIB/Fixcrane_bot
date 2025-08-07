@@ -123,59 +123,94 @@ class TelegramBot:
     #  QUERY PROCESSING
     # ==============================
     async def query_handler(self, update, context, query_func):
-        text = " ".join(context.args)
-        
+        args = context.args
+        text = " ".join(args)
+
+        # Jika tidak ada argumen sama sekali (/grafik), mulai alur interaktif
         if not text:
             await self.crane_button_handler(update, context, query_func)
             return
 
+        # Coba cocokkan dengan format perintah lengkap terlebih dahulu
         match = self._re_data.match(text)
-        if not match:
-            await update.message.reply_text(
-                "Format salah.\nContoh:\n`/data all 01-03-2024 31-03-2024 all`\n`/data 1 01-03-2024 31-03-2024 175`",
-                parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        if match:
+            # Jika cocok, proses seperti biasa
+            crane_input, start_date_str, end_date_str, fault_input = match.groups()
+            try:
+                start_date_obj = datetime.strptime(start_date_str, "%d-%m-%Y")
+                end_date_obj = datetime.strptime(end_date_str, "%d-%m-%Y")
+                if start_date_obj > end_date_obj:
+                    await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
+                    return
+                start_date = start_date_obj.strftime("%Y-%m-%d")
+                end_date = end_date_obj.strftime("%Y-%m-%d")
+            except ValueError:
+                await update.message.reply_text("❌ Format tanggal salah. Gunakan format DD-MM-YYYY")
+                return
+            
+            # Logika handling berdasarkan input (all/spesifik)
+            if crane_input == "all" and fault_input == "all":
+                records = self.maintenance_service.get_all_records_by_date_range(start_date, end_date)
+                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", "all")
+            elif crane_input == "all":
+                matches = self.maintenance_service.search_faults_by_keyword(fault_input)
+                if len(matches) == 1:
+                    records = self.maintenance_service.get_all_records_by_date_and_fault(start_date, end_date, matches[0].fault_id)
+                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", matches[0].fault_id)
+                else:
+                    await self.handle_fault_selection(update, context, query_func, "all", start_date, end_date, fault_input)
+            elif fault_input == "all":
+                records = self.maintenance_service.get_all_records_by_date_and_crane(start_date, end_date, crane_input)
+                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, "all")
+            else:
+                matches = self.maintenance_service.search_faults_by_keyword(fault_input)
+                if len(matches) == 1:
+                    records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
+                        start_date, end_date, crane_input, matches[0].fault_id)
+                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, matches[0].fault_id)
+                else:
+                    await self.handle_fault_selection(update, context, query_func, crane_input, start_date, end_date, fault_input)
             return
 
-        crane_input, start_date_str, end_date_str, fault_input = match.groups()
-        
-        try:
-            # Validasi format tanggal dan urutan
-            start_date_obj = datetime.strptime(start_date_str, "%d-%m-%Y")
-            end_date_obj = datetime.strptime(end_date_str, "%d-%m-%Y")
-            
-            if start_date_obj > end_date_obj:
-                await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
-                return
-                
-            start_date = start_date_obj.strftime("%Y-%m-%d")
-            end_date = end_date_obj.strftime("%Y-%m-%d")
-        except ValueError:
-            await update.message.reply_text("❌ Format tanggal salah. Gunakan format DD-MM-YYYY")
+        # --- LOGIKA BARU: Alur Interaktif untuk Perintah Parsial ---
+        num_args = len(args)
+        crane_input = args[0]
+
+        # Kasus: /grafik [crane] -> Tampilkan pilihan tahun
+        if num_args == 1:
+            callback_data_mimic = f"{query_func}|{crane_input}"
+            await self.year_button_handler(update, context, crane_input, callback_data_mimic)
             return
+
+        # Kasus: /grafik [crane] [start_date] [end_date] -> Tampilkan pilihan fault
+        if num_args == 3:
+            try:
+                start_date_obj = datetime.strptime(args[1], "%d-%m-%Y")
+                end_date_obj = datetime.strptime(args[2], "%d-%m-%Y")
+                
+                if start_date_obj > end_date_obj:
+                    await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
+                    return
+                    
+                start_date = start_date_obj.strftime("%Y-%m-%d")
+                end_date = end_date_obj.strftime("%Y-%m-%d")
+                
+                # Lanjutkan ke pemilihan fault
+                callback_data_mimic = f"{query_func}|{crane_input}|{start_date}|{end_date}"
+                await self.fault_button_handler(update, context, callback_data_mimic, page=1)
+                return
+
+            except (ValueError, IndexError):
+                # Jika tanggal tidak valid, jangan lanjutkan
+                await update.message.reply_text("Format tanggal salah. Gunakan DD-MM-YYYY.")
+                return
         
-        # Handle "all" untuk crane dan fault
-        if crane_input == "all" and fault_input == "all":
-            records = self.maintenance_service.get_all_records_by_date_range(start_date, end_date)
-            await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", "all")
-        elif crane_input == "all":
-            matches = self.maintenance_service.search_faults_by_keyword(fault_input)
-            if len(matches) == 1:
-                records = self.maintenance_service.get_all_records_by_date_and_fault(start_date, end_date, matches[0].fault_id)
-                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", matches[0].fault_id)
-            else:
-                await self.handle_fault_selection(update, context, query_func, "all", start_date, end_date, fault_input)
-        elif fault_input == "all":
-            records = self.maintenance_service.get_all_records_by_date_and_crane(start_date, end_date, crane_input)
-            await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, "all")
-        else:
-            # Regular single crane + fault handling
-            matches = self.maintenance_service.search_faults_by_keyword(fault_input)
-            if len(matches) == 1:
-                records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
-                    start_date, end_date, crane_input, matches[0].fault_id)
-                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, matches[0].fault_id)
-            else:
-                await self.handle_fault_selection(update, context, query_func, crane_input, start_date, end_date, fault_input)
+        # Jika format tidak cocok sama sekali (misal: 2 arg, atau 3 arg dengan format salah)
+        await update.message.reply_text(
+            "Format perintah tidak lengkap. Silakan gunakan tombol atau format lengkap:\n"
+            "`/grafik [crane] [dd-mm-yyyy] [dd-mm-yyyy] [fault]`",
+            parse_mode=telegram.constants.ParseMode.MARKDOWN
+        )
     
     async def handle_bulk_action(self, update, context, action, records, start_date, end_date, crane_id, fault_id):
         print(f"Handling bulk action: {action} for crane {crane_id}, fault {fault_id}, records count: {len(records)}")
