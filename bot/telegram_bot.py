@@ -123,94 +123,110 @@ class TelegramBot:
     #  QUERY PROCESSING
     # ==============================
     async def query_handler(self, update, context, query_func):
-        args = context.args
-        text = " ".join(args)
+        try:
+            args = context.args
+            text = " ".join(args)
+            logger.info(f"query_handler called with query_func={query_func}, args={args}, text='{text}'")
 
-        # Jika tidak ada argumen sama sekali (/grafik), mulai alur interaktif
-        if not text:
-            await self.crane_button_handler(update, context, query_func)
-            return
-
-        # Coba cocokkan dengan format perintah lengkap terlebih dahulu
-        match = self._re_data.match(text)
-        if match:
-            # Jika cocok, proses seperti biasa
-            crane_input, start_date_str, end_date_str, fault_input = match.groups()
-            try:
-                start_date_obj = datetime.strptime(start_date_str, "%d-%m-%Y")
-                end_date_obj = datetime.strptime(end_date_str, "%d-%m-%Y")
-                if start_date_obj > end_date_obj:
-                    await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
-                    return
-                start_date = start_date_obj.strftime("%Y-%m-%d")
-                end_date = end_date_obj.strftime("%Y-%m-%d")
-            except ValueError:
-                await update.message.reply_text("❌ Format tanggal salah. Gunakan format DD-MM-YYYY")
+            # Jika tidak ada argumen sama sekali (/grafik), mulai alur interaktif
+            if not text:
+                await self.crane_button_handler(update, context, query_func)
                 return
-            
-            # Logika handling berdasarkan input (all/spesifik)
-            if crane_input == "all" and fault_input == "all":
-                records = self.maintenance_service.get_all_records_by_date_range(start_date, end_date)
-                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", "all")
-            elif crane_input == "all":
-                matches = self.maintenance_service.search_faults_by_keyword(fault_input)
-                if len(matches) == 1:
-                    records = self.maintenance_service.get_all_records_by_date_and_fault(start_date, end_date, matches[0].fault_id)
-                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", matches[0].fault_id)
-                else:
-                    await self.handle_fault_selection(update, context, query_func, "all", start_date, end_date, fault_input)
-            elif fault_input == "all":
-                records = self.maintenance_service.get_all_records_by_date_and_crane(start_date, end_date, crane_input)
-                await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, "all")
-            else:
-                matches = self.maintenance_service.search_faults_by_keyword(fault_input)
-                if len(matches) == 1:
-                    records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
-                        start_date, end_date, crane_input, matches[0].fault_id)
-                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, matches[0].fault_id)
-                else:
-                    await self.handle_fault_selection(update, context, query_func, crane_input, start_date, end_date, fault_input)
-            return
 
-        # --- LOGIKA BARU: Alur Interaktif untuk Perintah Parsial ---
-        num_args = len(args)
-        crane_input = args[0]
-
-        # Kasus: /grafik [crane] -> Tampilkan pilihan tahun
-        if num_args == 1:
-            callback_data_mimic = f"{query_func}|{crane_input}"
-            await self.year_button_handler(update, context, crane_input, callback_data_mimic)
-            return
-
-        # Kasus: /grafik [crane] [start_date] [end_date] -> Tampilkan pilihan fault
-        if num_args == 3:
-            try:
-                start_date_obj = datetime.strptime(args[1], "%d-%m-%Y")
-                end_date_obj = datetime.strptime(args[2], "%d-%m-%Y")
-                
-                if start_date_obj > end_date_obj:
-                    await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
+            # Coba cocokkan dengan format perintah lengkap terlebih dahulu
+            match = self._re_data.match(text)
+            if match:
+                # Jika cocok, proses seperti biasa
+                crane_input, start_date_str, end_date_str, fault_input = match.groups()
+                try:
+                    start_date_obj = datetime.strptime(start_date_str, "%d-%m-%Y")
+                    end_date_obj = datetime.strptime(end_date_str, "%d-%m-%Y")
+                    if start_date_obj > end_date_obj:
+                        await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
+                        return
+                    start_date = start_date_obj.strftime("%Y-%m-%d")
+                    end_date = end_date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    await update.message.reply_text("❌ Format tanggal salah. Gunakan format DD-MM-YYYY")
                     return
+                
+                # Logika handling berdasarkan input (all/spesifik)
+                if crane_input == "all" and fault_input == "all":
+                    logger.info(f"Processing: all cranes, all faults, date range {start_date} to {end_date}")
+                    records = self.maintenance_service.get_all_records_by_date_range(start_date, end_date)
+                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", "all")
+                elif crane_input == "all":
+                    logger.info(f"Processing: all cranes, fault keyword '{fault_input}', date range {start_date} to {end_date}")
+                    matches = self.maintenance_service.search_faults_by_keyword(fault_input)
+                    logger.info(f"Found {len(matches)} fault matches for keyword '{fault_input}'")
+                    if len(matches) == 1:
+                        records = self.maintenance_service.get_all_records_by_date_and_fault(start_date, end_date, matches[0].fault_id)
+                        await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, "all", matches[0].fault_id)
+                    else:
+                        await self.handle_fault_selection(update, context, query_func, "all", start_date, end_date, fault_input)
+                elif fault_input == "all":
+                    records = self.maintenance_service.get_all_records_by_date_and_crane(start_date, end_date, crane_input)
+                    await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, "all")
+                else:
+                    matches = self.maintenance_service.search_faults_by_keyword(fault_input)
+                    if len(matches) == 1:
+                        records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
+                            start_date, end_date, crane_input, matches[0].fault_id)
+                        await self.handle_bulk_action(update, context, query_func, records, start_date, end_date, crane_input, matches[0].fault_id)
+                    else:
+                        await self.handle_fault_selection(update, context, query_func, crane_input, start_date, end_date, fault_input)
+                return
+
+            # --- LOGIKA BARU: Alur Interaktif untuk Perintah Parsial ---
+            num_args = len(args)
+            crane_input = args[0]
+
+            # Kasus: /grafik [crane] -> Tampilkan pilihan tahun
+            if num_args == 1:
+                callback_data_mimic = f"{query_func}|{crane_input}"
+                await self.year_button_handler(update, context, crane_input, callback_data_mimic)
+                return
+
+            # Kasus: /grafik [crane] [start_date] [end_date] -> Tampilkan pilihan fault
+            if num_args == 3:
+                try:
+                    start_date_obj = datetime.strptime(args[1], "%d-%m-%Y")
+                    end_date_obj = datetime.strptime(args[2], "%d-%m-%Y")
                     
-                start_date = start_date_obj.strftime("%Y-%m-%d")
-                end_date = end_date_obj.strftime("%Y-%m-%d")
-                
-                # Lanjutkan ke pemilihan fault
-                callback_data_mimic = f"{query_func}|{crane_input}|{start_date}|{end_date}"
-                await self.fault_button_handler(update, context, callback_data_mimic, page=1)
-                return
+                    if start_date_obj > end_date_obj:
+                        await update.message.reply_text("❌ Tanggal mulai tidak boleh setelah tanggal akhir")
+                        return
+                        
+                    start_date = start_date_obj.strftime("%Y-%m-%d")
+                    end_date = end_date_obj.strftime("%Y-%m-%d")
+                    
+                    # Lanjutkan ke pemilihan fault
+                    callback_data_mimic = f"{query_func}|{crane_input}|{start_date}|{end_date}"
+                    await self.fault_button_handler(update, context, callback_data_mimic, page=1)
+                    return
 
-            except (ValueError, IndexError):
-                # Jika tanggal tidak valid, jangan lanjutkan
-                await update.message.reply_text("Format tanggal salah. Gunakan DD-MM-YYYY.")
-                return
-        
-        # Jika format tidak cocok sama sekali (misal: 2 arg, atau 3 arg dengan format salah)
-        await update.message.reply_text(
-            "Format perintah tidak lengkap. Silakan gunakan tombol atau format lengkap:\n"
-            "`/grafik [crane] [dd-mm-yyyy] [dd-mm-yyyy] [fault]`",
-            parse_mode=telegram.constants.ParseMode.MARKDOWN
-        )
+                except (ValueError, IndexError):
+                    # Jika tanggal tidak valid, jangan lanjutkan
+                    await update.message.reply_text("Format tanggal salah. Gunakan DD-MM-YYYY.")
+                    return
+            
+            # Jika format tidak cocok sama sekali (misal: 2 arg, atau 3 arg dengan format salah)
+            await update.message.reply_text(
+                "Format perintah tidak lengkap. Silakan gunakan tombol atau format lengkap:\n"
+                "`/grafik [crane] [dd-mm-yyyy] [dd-mm-yyyy] [fault]`",
+                parse_mode=telegram.constants.ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            logger.error(f"Error in query_handler: {e}", exc_info=True)
+            try:
+                await update.message.reply_text(
+                    f"❌ Terjadi kesalahan saat memproses perintah: {e}\n\n"
+                    "Silakan coba lagi atau gunakan format:\n"
+                    "`/hapus [crane] [dd-mm-yyyy] [dd-mm-yyyy] [fault]`",
+                    parse_mode=telegram.constants.ParseMode.MARKDOWN
+                )
+            except Exception as send_error:
+                logger.error(f"Failed to send error message: {send_error}")
     
     async def handle_bulk_action(self, update, context, action, records, start_date, end_date, crane_id, fault_id):
         print(f"Handling bulk action: {action} for crane {crane_id}, fault {fault_id}, records count: {len(records)}")
@@ -231,18 +247,29 @@ class TelegramBot:
             await self.delete_bulk_confirmation(update, context, records, crane_id, start_date, end_date, fault_id)
 
     async def handle_fault_selection(self, update, context, query_func, crane_id, start_date, end_date, fault_input):
-        matches = self.maintenance_service.search_faults_by_keyword(fault_input)
-        if not matches:
-            await update.message.reply_text(f"❌ Tidak ditemukan fault '{fault_input}'.")
-            return
-        
-        keyboard = []
-        for fault in matches[:10]:
-            cb_data = f"{query_func}|{crane_id}|{start_date}|{end_date}|{fault.fault_id}"
-            keyboard.append([InlineKeyboardButton(f"{fault.code_fault}-{fault.fault_name}", callback_data=cb_data)])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Pilih fault:", reply_markup=reply_markup)
+        try:
+            logger.info(f"handle_fault_selection: crane_id={crane_id}, fault_input='{fault_input}', start_date={start_date}, end_date={end_date}")
+            matches = self.maintenance_service.search_faults_by_keyword(fault_input)
+            logger.info(f"Found {len(matches)} matches for fault keyword '{fault_input}'")
+            
+            if not matches:
+                await update.message.reply_text(f"❌ Tidak ditemukan fault '{fault_input}'.\n\nCoba gunakan keyword yang lebih spesifik atau cek data fault yang tersedia.")
+                return
+            
+            keyboard = []
+            for fault in matches[:10]:
+                fault_display = f"{fault.code_fault}-{fault.fault_name}" if fault.code_fault else fault.fault_name
+                cb_data = f"{query_func}|{crane_id}|{start_date}|{end_date}|{fault.fault_id}"
+                keyboard.append([InlineKeyboardButton(fault_display, callback_data=cb_data)])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            message_text = f"📌 Ditemukan {len(matches)} fault yang cocok dengan '{fault_input}':\n\nPilih fault yang ingin dihapus:"
+            if len(matches) > 10:
+                message_text += f"\n\n(Menampilkan 10 dari {len(matches)} hasil)"
+            await update.message.reply_text(message_text, reply_markup=reply_markup)
+        except Exception as e:
+            logger.error(f"Error in handle_fault_selection: {e}", exc_info=True)
+            await update.message.reply_text(f"❌ Terjadi kesalahan saat mencari fault: {e}")
 
     # ==============================
     #  DATA DISPLAY METHODS
@@ -402,7 +429,13 @@ class TelegramBot:
         end_display = datetime.strptime(end_date, "%Y-%m-%d").strftime("%d-%m-%Y")
         
         crane_text = "ALL CRANES" if crane_id == "all" else f"fc0{crane_id}"
-        fault_text = "ALL FAULTS" if fault_id == "all" else records[0].fault_reference.fault_name
+        # Handle case ketika fault_id adalah string (dari callback) atau integer
+        if fault_id == "all":
+            fault_text = "ALL FAULTS"
+        elif records and len(records) > 0:
+            fault_text = records[0].fault_reference.fault_name if hasattr(records[0], 'fault_reference') else str(fault_id)
+        else:
+            fault_text = str(fault_id)
         
         text = f"⚠️ **BULK DELETE CONFIRMATION**\n\n🏗️{crane_text}\n📅{start_display}-{end_display}\n🔧{fault_text}\n📊**{count} RECORDS**\n\n❗**IRREVERSIBLE!**"
         
@@ -411,7 +444,21 @@ class TelegramBot:
             InlineKeyboardButton("❌CANCEL", callback_data="cancel_delete")
         ]]
         
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        # Handle both message and callback_query
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                text, 
+                reply_markup=InlineKeyboardMarkup(keyboard), 
+                parse_mode=telegram.constants.ParseMode.MARKDOWN
+            )
+        elif update.message:
+            await update.message.reply_text(
+                text, 
+                reply_markup=InlineKeyboardMarkup(keyboard), 
+                parse_mode=telegram.constants.ParseMode.MARKDOWN
+            )
+        else:
+            logger.error("delete_bulk_confirmation: update has neither message nor callback_query")
     
     async def execute_bulk_delete(self, update, context, crane_id, start_date, end_date, fault_id):
         try:
@@ -546,78 +593,99 @@ class TelegramBot:
             )
 
     async def handle_buttons(self, update, context, query):
-        parts = query.split("|")
-        
-        if len(parts) == 5:
-            action, crane_id, start_date, end_date, fault = parts
+        try:
+            logger.info(f"handle_buttons called with query: {query}")
+            parts = query.split("|")
             
-            if parts[-1].startswith("page="):
-                page = int(parts[4].split("=")[1])
-                return await self.fault_button_handler(update, context, "|".join(parts[:4]), page)
-
-            # Pilih fungsi servis yang sesuai berdasarkan crane_id
-            if str(crane_id).lower() == 'all':
-                # Jika 'all', panggil fungsi yang mengambil data untuk fault spesifik di semua crane
-                records = self.maintenance_service.get_all_records_by_date_and_fault(
-                    start_date, end_date, fault
-                )
-            else:
-                # Jika crane_id spesifik, gunakan fungsi yang sudah ada
-                records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
-                    start_date, end_date, crane_id, fault
-                )
-            # Periksa jika records kosong
-            if not records:
-                return await update.callback_query.edit_message_text("❌ Tidak ada data ditemukan untuk fault tersebut.")
-
-            # Memproses aksi
-            if action == "show_data":
-                await self.show_data(update, records)
-            elif action == "show_graph":
-                await self.show_graph(update, context, records, start_date, end_date)
-            elif action == "delete_data":
-                return
-            else:
-                await update.edit_message_text("❌ Aksi callback tidak dikenali.")
+            if len(parts) == 5:
+                action, crane_id, start_date, end_date, fault = parts
+                logger.info(f"Processing action={action}, crane_id={crane_id}, start_date={start_date}, end_date={end_date}, fault={fault}")
                 
-        # 4) action|crane_id|start_YYYY-MM|end_YYYY-MM — tampilkan pilihan fault
-        elif len(parts) == 4:
-            action, crane_id, start_raw, end_raw = parts
-            # Normalisasi tanggal: start = tgl 01, end = tgl terakhir bulan
-            try:
-                # start_raw/end_raw format: YYYY-MM-DD
-                start_dt = datetime.strptime(start_raw, "%Y-%m-%d")
-                end_dt = datetime.strptime(end_raw, "%Y-%m-%d")
-                # Set tanggal 1 untuk start
-                start_date = start_dt.replace(day=1).strftime("%Y-%m-%d")
-                # Set tanggal terakhir untuk end
-                last_day = calendar.monthrange(end_dt.year, end_dt.month)[1]
-                end_date = end_dt.replace(day=last_day).strftime("%Y-%m-%d")
-                # Lanjutkan ke fault_button_handler dengan parts yang sudah dinormalisasi
-                new_query = f"{action}|{crane_id}|{start_date}|{end_date}"
-                return await self.fault_button_handler(update, context, new_query, 1)
-            except Exception as e:
-                print(f"Error normalisasi tanggal: {e}")
-                return await self.month_button_handler(update, context, query)
-        
-        # 3) action|crane_id|start_YYYY-MM — tampilkan pilihan end YYYY-MM
-        elif len(parts) == 3:
-            action, crane_id, _ = parts
-            date_query_match = re.compile(r"(\d{4}-\d{2})")
-            date_match       = date_query_match.match(parts[-1])
-            if date_match:
+                if parts[-1].startswith("page="):
+                    page = int(parts[4].split("=")[1])
+                    return await self.fault_button_handler(update, context, "|".join(parts[:4]), page)
+
+                # Pilih fungsi servis yang sesuai berdasarkan crane_id
+                if str(crane_id).lower() == 'all':
+                    # Jika 'all', panggil fungsi yang mengambil data untuk fault spesifik di semua crane
+                    logger.info(f"Fetching records for all cranes, fault_id={fault}, date range {start_date} to {end_date}")
+                    records = self.maintenance_service.get_all_records_by_date_and_fault(
+                        start_date, end_date, fault
+                    )
+                else:
+                    # Jika crane_id spesifik, gunakan fungsi yang sudah ada
+                    logger.info(f"Fetching records for crane_id={crane_id}, fault_id={fault}, date range {start_date} to {end_date}")
+                    records = self.maintenance_service.get_records_by_date_and_id_crane_and_id_fault(
+                        start_date, end_date, crane_id, fault
+                    )
+                
+                logger.info(f"Found {len(records)} records")
+                
+                # Periksa jika records kosong
+                if not records:
+                    error_msg = "❌ Tidak ada data ditemukan untuk fault tersebut."
+                    if update.callback_query:
+                        await update.callback_query.edit_message_text(error_msg)
+                    else:
+                        await update.message.reply_text(error_msg)
+                    return
+
+                # Memproses aksi
+                if action == "show_data":
+                    await self.show_data(update, records)
+                elif action == "show_graph":
+                    await self.show_graph(update, context, records, start_date, end_date)
+                elif action == "delete_data":
+                    # Untuk delete, tampilkan konfirmasi dengan jumlah records yang akan dihapus
+                    logger.info(f"Showing delete confirmation for {len(records)} records")
+                    await self.delete_bulk_confirmation(update, context, records, crane_id, start_date, end_date, fault)
+                    return
+                else:
+                    error_msg = "❌ Aksi callback tidak dikenali."
+                    if update.callback_query:
+                        await update.callback_query.edit_message_text(error_msg)
+                    else:
+                        await update.message.reply_text(error_msg)
+                return
+                
+            # 4) action|crane_id|start_YYYY-MM|end_YYYY-MM — tampilkan pilihan fault
+            elif len(parts) == 4:
+                action, crane_id, start_raw, end_raw = parts
+                # Normalisasi tanggal: start = tgl 01, end = tgl terakhir bulan
+                try:
+                    # start_raw/end_raw format: YYYY-MM-DD
+                    start_dt = datetime.strptime(start_raw, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end_raw, "%Y-%m-%d")
+                    # Set tanggal 1 untuk start
+                    start_date = start_dt.replace(day=1).strftime("%Y-%m-%d")
+                    # Set tanggal terakhir untuk end
+                    last_day = calendar.monthrange(end_dt.year, end_dt.month)[1]
+                    end_date = end_dt.replace(day=last_day).strftime("%Y-%m-%d")
+                    # Lanjutkan ke fault_button_handler dengan parts yang sudah dinormalisasi
+                    new_query = f"{action}|{crane_id}|{start_date}|{end_date}"
+                    return await self.fault_button_handler(update, context, new_query, 1)
+                except Exception as e:
+                    print(f"Error normalisasi tanggal: {e}")
+                    return await self.month_button_handler(update, context, query)
+            
+            # 3) action|crane_id|start_YYYY-MM — tampilkan pilihan end YYYY-MM
+            elif len(parts) == 3:
+                action, crane_id, _ = parts
+                date_query_match = re.compile(r"(\d{4}-\d{2})")
+                date_match       = date_query_match.match(parts[-1])
+                if date_match:
+                    return await self.year_button_handler(update, context, crane_id, query)
+                else:
+                    return await self.month_button_handler(update, context, query)
+            
+            # 2) action|crane_id — tampilkan pilihan start YYYY-MM
+            elif len(parts) == 2:
+                action, crane_id = parts
                 return await self.year_button_handler(update, context, crane_id, query)
-            else:
-                return await self.month_button_handler(update, context, query)
-        
-        # 2) action|crane_id — tampilkan pilihan start YYYY-MM
-        elif len(parts) == 2:
-            action, crane_id = parts
-            return await self.year_button_handler(update, context, crane_id, query)
-        
-        elif len(parts) == 1:
-            if parts[0] == "help":
-                help_text = (
+            
+            elif len(parts) == 1:
+                if parts[0] == "help":
+                    help_text = (
                 "🛠️ *Cara Penggunaan Bot Maintenance Crane*\n\n"
                 "1. *Menu Utama* - Ketik /start untuk menampilkan menu utama dengan pilihan:\n"
                 "   - 📊 Lihat Grafik: Menampilkan grafik frekuensi maintenance\n"
@@ -659,6 +727,15 @@ class TelegramBot:
                 )
             else:
                 return await self.crane_button_handler(update, context, parts[0])
+        except Exception as e:
+            logger.error(f"Error in handle_buttons: {e}", exc_info=True)
+            try:
+                if update.callback_query:
+                    await update.callback_query.edit_message_text(f"❌ Terjadi kesalahan: {e}")
+                else:
+                    await update.message.reply_text(f"❌ Terjadi kesalahan: {e}")
+            except Exception as send_error:
+                logger.error(f"Failed to send error message: {send_error}")
 
     # ==============================
     #  BUTTON HANDLERS

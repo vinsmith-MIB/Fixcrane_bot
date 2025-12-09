@@ -3,8 +3,7 @@ import os
 from telegram import Update
 from telegram.ext import ContextTypes
 import telegram
-import functools
-
+from functools import wraps
 def get_admin_ids():
     """Ambil daftar admin dari environment variable"""
     admin_ids_str = os.getenv("ADMIN_USER_IDS", "")
@@ -16,7 +15,7 @@ def is_admin(user_id: int) -> bool:
     return user_id in get_admin_ids()
 
 def admin_only(func):
-    @functools.wraps(func)
+    @wraps(func)
     async def wrapper(*args, **kwargs):
         # Jika fungsi adalah method, maka urutannya: self, update, context
         if len(args) >= 3:

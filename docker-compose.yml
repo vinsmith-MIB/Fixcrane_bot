@@ -16,6 +16,7 @@ services:
       - db
     volumes:
       - ./:/app
+    command: sh -c "dos2unix /app/wait-for-db.sh && sh /app/wait-for-db.sh db python main.py"
 
   db:
     image: postgres:15
